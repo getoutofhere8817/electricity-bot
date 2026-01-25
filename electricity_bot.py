@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Телеграм-бот для відстеження відключень світла у Вінниці
+Телеграм-бот для відстеження відключень світла у Рівному
 """
 
 import asyncio
@@ -514,6 +514,25 @@ def main() -> None:
     logger.info("✅ Бот успішно запущено і працює!")
     logger.info("🔍 Перевірка графіків кожну хвилину...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+from flask import Flask
+from threading import Thread
+import os
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+
+if __name__ == '__main__':
+    # Запускаємо веб-сервер у потоці
+    t = Thread(target=run_flask, daemon=True)
+    t.start()
 
 
 if __name__ == '__main__':
