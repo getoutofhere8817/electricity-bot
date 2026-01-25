@@ -506,10 +506,6 @@ def main() -> None:
     job_queue = application.job_queue
     job_queue.run_repeating(check_and_notify, interval=60, first=10)
     
-    # Запускаємо веб-сервер для keep-alive
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_web_server())
-    
     # Запускаємо бота
     logger.info("✅ Бот успішно запущено і працює!")
     logger.info("🔍 Перевірка графіків кожну хвилину...")
