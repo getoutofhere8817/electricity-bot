@@ -515,25 +515,6 @@ def main() -> None:
     logger.info("🔍 Перевірка графіків кожну хвилину...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
-import os
-from flask import Flask
-from threading import Thread
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_flask():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
-
-if __name__ == '__main__':
-    t = Thread(target=run_flask, daemon=True)
-    t.start()
-    main()
-
 
 if __name__ == '__main__':
     main()
