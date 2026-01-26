@@ -13,12 +13,14 @@ from typing import Dict, List, Optional
 import aiohttp
 from aiohttp import web
 from bs4 import BeautifulSoup
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 # Налаштування логування
@@ -36,6 +38,15 @@ user_data_storage: Dict[int, Dict] = {}
 
 # Збереження попереднього графіку для відстеження змін
 previous_schedule: Dict = {}
+
+
+def get_main_keyboard():
+    """Створює головну клавіатуру з кнопками"""
+    keyboard = [
+        [KeyboardButton("🔢 Встановити чергу"), KeyboardButton("📅 Графік")],
+        [KeyboardButton("🔔 Сповіщення"), KeyboardButton("ℹ️ Допомога")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
 class ElectricityScheduleParser:
@@ -197,37 +208,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     welcome_message = (
         "🔌 Вітаю! Я бот для відстеження відключень світла у Рівному.\n\n"
-        "📋 Доступні команди:\n"
-        "/setqueue - Встановити вашу чергу відключень\n"
-        "/schedule - Подивитись графік на сьогодні\n"
-        "/notify - Увімкнути/вимкнути сповіщення\n"
-        "/help - Допомога\n\n"
         "💡 Бот надсилає сповіщення:\n"
         "• За 10 хвилин до відключення\n"
         "• На початку відключення\n"
         "• За 10 хвилин до відновлення\n"
         "• При відновленні світла\n\n"
-        "Почніть з команди /setqueue, щоб налаштувати ваші сповіщення!"
+        "👇 Оберіть дію за допомогою кнопок нижче:"
     )
     
-    await update.message.reply_text(welcome_message)
+    await update.message.reply_text(
+        welcome_message,
+        reply_markup=get_main_keyboard()
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обробник команди /help"""
     help_text = (
         "ℹ️ *Як користуватися ботом:*\n\n"
-        "1️⃣ Використайте /setqueue, щоб встановити вашу чергу\n"
-        "2️⃣ Увімкніть сповіщення командою /notify\n"
-        "3️⃣ Бот буде автоматично повідомляти вас про відключення\n\n"
-        "📊 /schedule - Переглянути графік\n"
-        "🔔 /notify - Керування сповіщеннями\n\n"
-        "Щоб дізнатись вашу чергу, відвідайте:\n"
-        "🌐 [Графік для міста Рівне](https://www.roe.vsei.ua/wp-content/uploads/2026/01/GPV_cherga_misto_Rivne.pdf)\n"
-        "🌐 [Графік для Рівненської області](https://www.roe.vsei.ua/wp-content/uploads/2026/01/GPV_cherga_Rivnenska_oblast-1.pdf)"
+        "1️⃣ Натисніть *🔢 Встановити чергу*, щоб вибрати вашу чергу\n"
+        "2️⃣ Натисніть *🔔 Сповіщення*, щоб увімкнути сповіщення\n"
+        "3️⃣ Натисніть *📅 Графік*, щоб побачити графік відключень\n\n"
+        "📍 Дізнатися вашу чергу можна:\n"
+        "• На сайті https://www.roe.vsei.ua/disconnections\n"
+        "• У вашому ЖЕКу або управлінні\n\n"
+        "⚡ Бот автоматично надішле сповіщення коли буде відключення!"
     )
     
-    await update.message.reply_text(help_text, parse_mode='Markdown', disable_web_page_preview=True)
+    await update.message.reply_text(
+        help_text,
+        parse_mode='Markdown',
+        reply_markup=get_main_keyboard()
+    )
 
 
 async def set_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -460,6 +472,26 @@ async def check_and_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
                     logger.error(f"Помилка обробки часу: {e}")
 
 
+async def handle_text_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обробник текстових кнопок меню"""
+    text = update.message.text
+    
+    if text == "🔢 Встановити чергу":
+        await set_queue(update, context)
+    elif text == "📅 Графік":
+        await schedule_command(update, context)
+    elif text == "🔔 Сповіщення":
+        await notify_command(update, context)
+    elif text == "ℹ️ Допомога":
+        await help_command(update, context)
+    else:
+        # Якщо невідома команда - показуємо меню
+        await update.message.reply_text(
+            "👇 Оберіть дію за допомогою кнопок:",
+            reply_markup=get_main_keyboard()
+        )
+
+
 async def health_check(request):
     """Keep-alive endpoint для Render.com та інших хостингів"""
     return web.Response(text="✅ Bot is running!")
@@ -513,6 +545,9 @@ def main() -> None:
     application.add_handler(CommandHandler("schedule", schedule_command))
     application.add_handler(CommandHandler("notify", notify_command))
     application.add_handler(CallbackQueryHandler(queue_callback, pattern="^queue_"))
+    
+    # Обробник текстових кнопок (має бути після команд)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_buttons))
     
     # Додаємо перевірку кожні 10 хвилин
     job_queue = application.job_queue
