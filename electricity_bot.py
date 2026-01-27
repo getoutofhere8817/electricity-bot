@@ -185,7 +185,8 @@ async def check_schedule_changes(context: ContextTypes.DEFAULT_TYPE, new_schedul
                 await context.bot.send_message(
                     chat_id=user_id,
                     text=change_message,
-                    parse_mode='Markdown'
+                    parse_mode='Markdown',
+                    disable_notification=True  # Беззвучне сповіщення
                 )
                 
                 logger.info(f"Надіслано сповіщення про зміну графіку користувачу {user_id}")
@@ -424,12 +425,24 @@ async def check_and_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
         
         time_slots = schedule[today][queue_key][subqueue_key]
         
+        # Перевіряємо чи не порожній час
+        if not time_slots or time_slots.strip() == '':
+            continue
+        
         # Парсимо часові проміжки
         slots = time_slots.split()
         
         for slot in slots:
-            if '-' in slot:
-                start_str, end_str = slot.split('-')
+            if '-' in slot and ':' in slot:
+                parts = slot.split('-')
+                if len(parts) != 2:
+                    continue
+                    
+                start_str, end_str = parts[0].strip(), parts[1].strip()
+                
+                # Перевіряємо чи не порожні
+                if not start_str or not end_str or ':' not in start_str or ':' not in end_str:
+                    continue
                 
                 try:
                     start_hour, start_min = map(int, start_str.split(':'))
@@ -448,7 +461,8 @@ async def check_and_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
                             chat_id=user_id,
                             text=f"⚠️ Увага! Приблизно через {minutes_until_start} хвилин (о {start_str}) буде відключено світло.\n\n"
                                  f"⏱ Можливі відхилення від графіку до 1 години.\n\n"
-                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення"
+                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення",
+                            disable_notification=True  # Беззвучне сповіщення
                         )
                     
                     # Сповіщення на початку відключення (інтервал 0-10 хв)
@@ -457,7 +471,8 @@ async def check_and_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
                             chat_id=user_id,
                             text=f"🔴 Зараз відключено світло (графік: {start_str}). Повернеться о {end_str}.\n\n"
                                  f"⏱ Можливі відхилення від графіку до 1 години.\n\n"
-                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення"
+                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення",
+                            disable_notification=True  # Беззвучне сповіщення
                         )
                     
                     # Сповіщення за 10 хвилин до ВІДНОВЛЕННЯ
@@ -468,7 +483,8 @@ async def check_and_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
                             chat_id=user_id,
                             text=f"⏰ Приблизно через {minutes_until_end} хвилин (о {end_str}) світло буде відновлено!\n\n"
                                  f"⏱ Можливі відхилення від графіку до 1 години.\n\n"
-                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення"
+                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення",
+                            disable_notification=True  # Беззвучне сповіщення
                         )
                     
                     # Сповіщення про відновлення світла (інтервал 0-10 хв)
@@ -477,7 +493,8 @@ async def check_and_notify(context: ContextTypes.DEFAULT_TYPE) -> None:
                             chat_id=user_id,
                             text=f"🟢 Світло відновлено (графік: {end_str})!\n\n"
                                  f"💡 Перевірте чи дійсно є електропостачання - можливі відхилення від графіку.\n\n"
-                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення"
+                                 f"Щоб вимкнути сповіщення натисніть 🔔 Сповіщення",
+                            disable_notification=True  # Беззвучне сповіщення
                         )
                         
                 except Exception as e:
